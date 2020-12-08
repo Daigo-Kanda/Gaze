@@ -1,15 +1,12 @@
 # osに依存している様々な機能を利用するためのモジュール
 import os
-import tensorflow as tf
-from tensorflow.keras.optimizers import SGD, Adam
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
-from Network import network_separate_eye_2 as net
-import network_separate_eye_2 as net
-import matplotlib.pyplot as plt
 import pickle
 import time
-from Original import ITrackerData as data_gen
+
 import ITrackerData as data_gen
+import matplotlib.pyplot as plt
+import tensorflow as tf
+from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
 
 # # os.environ['TF_CUDNN_DETERMINISTIC'] = '1'
 # os.environ['TF_CUDNN_USE_AUTOTUNE'] = '0'
@@ -41,10 +38,13 @@ if gpus:
             gpus[1],
             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120),
              tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120)])
-        tf.config.experimental.set_virtual_device_configuration(
-            gpus[0],
-            [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120),
-             tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120)])
+
+        tf.config.experimental.set_visible_devices(gpus[0], 'GPU')
+
+        # tf.config.experimental.set_virtual_device_configuration(
+        #     gpus[0],
+        #     [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120),
+        #      tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120)])
         logical_gpus = tf.config.experimental.list_logical_devices('GPU')
         print(len(gpus), "Physical GPU,", len(logical_gpus), "Logical GPUs")
     except RuntimeError as e:
@@ -66,20 +66,21 @@ img_rows = 224
 img_ch = 3
 
 with tf.distribute.MirroredStrategy(devices=logical_gpus,
-        cross_device_ops=tf.distribute.ReductionToOneDevice(reduce_to_device="cpu:0")).scope():
+                                    cross_device_ops=tf.distribute.ReductionToOneDevice(
+                                        reduce_to_device="cpu:0")).scope():
     # model
-    model = net.get_eye_tracker_model(img_ch, img_cols, img_rows)
-    # model = tf.keras.models.load_model("/tmp/pycharm_project_572/Original/models/models.025-11.55493.hdf5")
+    # model = net.get_eye_tracker_model(img_ch, img_cols, img_rows)
+    model = tf.keras.models.load_model("/home/kanda/pycharm/Gaze/Original/models/models.004-10.02091.hdf5")
     # model summary
     model.summary()
 
     # optimizer
-    sgd = SGD(lr=1e-1, decay=5e-4, momentum=9e-1, nesterov=True)
-    adam = Adam(lr=1e-3)
+    # sgd = SGD(lr=1e-1, decay=5e-4, momentum=9e-1, nesterov=True)
+    # adam = Adam(lr=1e-3)
 
     # compile model
     # model.compile(optimizer=adam, loss='mse')
-    model.compile(optimizer=adam, loss='mse', metrics=['mae'])
+    # model.compile(optimizer=adam, loss='mse', metrics=['mae'])
 
     start = time.time()
 
@@ -96,16 +97,19 @@ with tf.distribute.MirroredStrategy(devices=logical_gpus,
     history = model.fit(
         x=train_gen,
         steps_per_epoch=len(train_gen),
-        initial_epoch=0,
+        initial_epoch=4,
         epochs=n_epoch,
         verbose=1,
         validation_data=valid_gen,
         validation_steps=len(valid_gen),
+        # workers=3,
+        use_multiprocessing=False,
         callbacks=[EarlyStopping(patience=patience),
                    ModelCheckpoint("models/models.{epoch:03d}-{val_loss:.5f}.hdf5", save_best_only=False,
                                    save_weights_only=False),
                    tf.keras.callbacks.TensorBoard(
-                       log_dir='./logs', histogram_freq=1, write_grads=True, write_images=1, embeddings_freq=1)
+                       log_dir='./logs', profile_batch='1,10', histogram_freq=1, write_grads=True, write_images=1,
+                       embeddings_freq=1)
                    ]
     )
 
