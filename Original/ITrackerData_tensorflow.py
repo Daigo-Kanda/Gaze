@@ -136,65 +136,108 @@ def getData(batch_size, memory_size):
     right_path_ds = tf.data.Dataset.from_tensor_slices(all_right_list)
     left_path_ds = tf.data.Dataset.from_tensor_slices(all_left_list)
 
-    del all_face_list, all_right_list, all_left_list
+    grid_ds = tf.data.Dataset.from_tensor_slices(tf.cast(all_grid_list, tf.int8))
+    gaze_ds = tf.data.Dataset.from_tensor_slices(tf.cast(all_gaze_list, tf.float32))
+
+    del all_face_list, all_right_list, all_left_list, all_grid_list, all_gaze_list
     gc.collect()
 
     size = 224
-
-    if memory_size > 100:
-        face_img_ds = face_path_ds.map(lambda x: load_image(x),
-                                       num_parallel_calls=AUTOTUNE).cache().map(
-            lambda x: preprocess_image(x, size, faceMean),
-            num_parallel_calls=AUTOTUNE)
-        right_img_ds = right_path_ds.map(lambda x: load_image(x),
-                                         num_parallel_calls=AUTOTUNE).cache().map(
-            lambda x: preprocess_image(x, size, eyeRightMean),
-            num_parallel_calls=AUTOTUNE)
-        left_img_ds = left_path_ds.map(lambda x: load_image(x),
-                                       num_parallel_calls=AUTOTUNE).cache().map(
-            lambda x: preprocess_image(x, size, eyeLeftMean),
-            num_parallel_calls=AUTOTUNE)
-        grid_ds = tf.data.Dataset.from_tensor_slices(tf.cast(all_grid_list, tf.int8)).cache()
-        gaze_ds = tf.data.Dataset.from_tensor_slices(tf.cast(all_gaze_list, tf.float32)).cache()
-
-        del all_grid_list, all_gaze_list
-        gc.collect()
-
-    else:
-        face_img_ds = face_path_ds.map(lambda x: load_and_preprocess_image(x, size, faceMean),
-                                       num_parallel_calls=AUTOTUNE)
-        right_img_ds = right_path_ds.map(lambda x: load_and_preprocess_image(x, size, eyeRightMean),
-                                         num_parallel_calls=AUTOTUNE)
-        left_img_ds = left_path_ds.map(lambda x: load_and_preprocess_image(x, size, eyeLeftMean),
-                                       num_parallel_calls=AUTOTUNE)
-        grid_ds = tf.data.Dataset.from_tensor_slices(tf.cast(all_grid_list, tf.int8))
-        gaze_ds = tf.data.Dataset.from_tensor_slices(tf.cast(all_gaze_list, tf.float32))
-
-        del all_grid_list, all_gaze_list
-        gc.collect()
-
-    data = tf.data.Dataset.zip(((right_img_ds, left_img_ds, face_img_ds, grid_ds), gaze_ds))
 
     train_size = int(0.7 * DATASET_SIZE)
     val_size = int(0.15 * DATASET_SIZE)
     test_size = int(0.15 * DATASET_SIZE)
 
-    # set_seed()
-    # ds = data.shuffle(buffer_size=DATASET_SIZE, seed=5)
-    train_ds = data.take(train_size)
-    remaining = data.skip(train_size)
+    train_ds = face_path_ds.take(train_size)
+    remaining = face_path_ds.skip(train_size)
     valid_ds = remaining.take(val_size)
-    # test_ds = remaining.skip(val_size)
+    test_ds = remaining.skip(val_size)
+    face_path_ds_list = [train_ds, valid_ds, test_ds]
+    print(id(face_path_ds_list[0]))
 
-    train_ds = train_ds.batch(batch_size)
-    # train_ds = train_ds.cache()
-    train_ds = train_ds.prefetch(buffer_size=AUTOTUNE)
+    train_ds = right_path_ds.take(train_size)
+    remaining = right_path_ds.skip(train_size)
+    valid_ds = remaining.take(val_size)
+    test_ds = remaining.skip(val_size)
+    right_path_ds_list = [train_ds, valid_ds, test_ds]
+    print(id(right_path_ds_list[0]))
 
-    valid_ds = valid_ds.batch(batch_size)
-    # valid_ds = valid_ds.cache()
-    valid_ds = valid_ds.prefetch(buffer_size=AUTOTUNE)
+    train_ds = left_path_ds.take(train_size)
+    remaining = left_path_ds.skip(train_size)
+    valid_ds = remaining.take(val_size)
+    test_ds = remaining.skip(val_size)
+    left_path_ds_list = [train_ds, valid_ds, test_ds]
+    print(id(left_path_ds_list[0]))
 
-    # test_ds_ds = test_ds.batch(batch_size)
-    # test_ds = test_ds.prefetch(buffer_size=AUTOTUNE)
+    train_ds = grid_ds.take(train_size).cache()
+    remaining = grid_ds.skip(train_size)
+    valid_ds = remaining.take(val_size).cache()
+    test_ds = remaining.skip(val_size).cache()
+    grid_ds_list = [train_ds, valid_ds, test_ds]
 
-    return [train_ds, valid_ds]
+    train_ds = gaze_ds.take(train_size).cache()
+    remaining = gaze_ds.skip(train_size)
+    valid_ds = remaining.take(val_size).cache()
+    test_ds = remaining.skip(val_size).cache()
+    gaze_ds_list = [train_ds, valid_ds, test_ds]
+
+    data_list = []
+    for i in range(2):
+
+        if memory_size > 100:
+            face_img_ds = face_path_ds_list[i].map(lambda x: load_image(x),
+                                                   num_parallel_calls=AUTOTUNE).cache()
+            face_img_ds = face_img_ds.map(
+                lambda x: preprocess_image(x, size, faceMean),
+                num_parallel_calls=AUTOTUNE)
+            right_img_ds = right_path_ds_list[i].map(lambda x: load_image(x),
+                                                     num_parallel_calls=AUTOTUNE).cache()
+            right_img_ds = right_img_ds.map(
+                lambda x: preprocess_image(x, size, eyeRightMean),
+                num_parallel_calls=AUTOTUNE)
+            left_img_ds = left_path_ds_list[i].map(lambda x: load_image(x),
+                                                   num_parallel_calls=AUTOTUNE).cache()
+            left_img_ds = left_img_ds.map(
+                lambda x: preprocess_image(x, size, eyeLeftMean),
+                num_parallel_calls=AUTOTUNE)
+
+        else:
+            face_img_ds = face_path_ds_list[i].map(lambda x: load_and_preprocess_image(x, size, faceMean),
+                                                   num_parallel_calls=AUTOTUNE)
+            right_img_ds = right_path_ds_list[i].map(lambda x: load_and_preprocess_image(x, size, eyeRightMean),
+                                                     num_parallel_calls=AUTOTUNE)
+            left_img_ds = left_path_ds_list[i].map(lambda x: load_and_preprocess_image(x, size, eyeLeftMean),
+                                                   num_parallel_calls=AUTOTUNE)
+
+        data = tf.data.Dataset.zip(((right_img_ds, left_img_ds, face_img_ds, grid_ds), gaze_ds))
+
+        ds = data.batch(batch_size)
+        ds = ds.prefetch(buffer_size=AUTOTUNE)
+
+        data_list.append(ds)
+
+    return data_list
+
+    # train_size = int(0.7 * DATASET_SIZE)
+    # val_size = int(0.15 * DATASET_SIZE)
+    # test_size = int(0.15 * DATASET_SIZE)
+    #
+    # # set_seed()
+    # # ds = data.shuffle(buffer_size=DATASET_SIZE, seed=5)
+    # train_ds = data.take(train_size)
+    # remaining = data.skip(train_size)
+    # valid_ds = remaining.take(val_size)
+    # # test_ds = remaining.skip(val_size)
+    #
+    # train_ds = train_ds.batch(batch_size)
+    # # train_ds = train_ds.cache()
+    # train_ds = train_ds.prefetch(buffer_size=AUTOTUNE)
+    #
+    # valid_ds = valid_ds.batch(batch_size)
+    # # valid_ds = valid_ds.cache()
+    # valid_ds = valid_ds.prefetch(buffer_size=AUTOTUNE)
+    #
+    # # test_ds_ds = test_ds.batch(batch_size)
+    # # test_ds = test_ds.prefetch(buffer_size=AUTOTUNE)
+    #
+    # return [train_ds, valid_ds]
