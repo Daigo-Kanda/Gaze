@@ -67,8 +67,8 @@ def get_face_model(img_ch, img_cols, img_rows):
 
 
 def get_eye_tracker_model(img_ch, img_cols, img_rows):
-    right_eye_input = Input(shape=(img_cols, img_rows, img_ch))
-    left_eye_input = Input(shape=(img_cols, img_rows, img_ch))
+    right_eye_input = Input(shape=(img_cols, img_rows, img_ch), name='right_eye_input')
+    left_eye_input = Input(shape=(img_cols, img_rows, img_ch), name='left_eye_input')
 
     h = Conv2D(96, (11, 11), strides=4)(right_eye_input)
     h = BatchNormalization()(h)
@@ -95,7 +95,7 @@ def get_eye_tracker_model(img_ch, img_cols, img_rows):
                           padding='same', activation=activation)(h)
 
     # face model
-    face_input = Input(shape=(img_cols, img_rows, img_ch))
+    face_input = Input(shape=(img_cols, img_rows, img_ch), name='face_input')
 
     h = Conv2D(96, (11, 11), strides=4)(face_input)
     h = BatchNormalization()(h)
@@ -110,7 +110,7 @@ def get_eye_tracker_model(img_ch, img_cols, img_rows):
                       activation=activation)(h)
 
     # face grid
-    face_grid = Input(shape=(25 * 25, 1))
+    face_grid = Input(shape=(25 * 25, 1), name='grid_input')
 
     # dense layers for eyes
     e = concatenate([left_eye_net, right_eye_net])

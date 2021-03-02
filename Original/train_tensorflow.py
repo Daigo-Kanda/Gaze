@@ -5,7 +5,7 @@ import time
 
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint
+from tensorflow.keras.callbacks import ModelCheckpoint
 from tensorflow.keras.optimizers import SGD, Adam
 from tensorflow.python.keras.utils.vis_utils import plot_model
 
@@ -39,7 +39,7 @@ if gpus:
         # Virtual devices must be set before GPUs have been initialized
         print(e)
 
-dataset_path = "/home/kanda/GazeCapture_pre"
+dataset_path = "/kanda_tmp/GazeCapture_pre"
 # dataset_path = "/mnt/data/DataSet/GazeCapture_pre"
 
 # train parameters
@@ -60,9 +60,11 @@ print("start")
 # with tf.distribute.MirroredStrategy(devices=logical_gpus,
 #                                     cross_device_ops=tf.distribute.ReductionToOneDevice(
 #                                         reduce_to_device="cpu:0")).scope():
+
+
 # model
 model = net.get_eye_tracker_model(img_ch, img_cols, img_rows)
-# model = tf.keras.models.load_model("/home/daigokanda/PycharmProjects/Gaze/Original/models/models.007-2.90091.hdf5")
+# model = tf.keras.models.load_model("/kanda_tmp/Gaze/Original/models/models.026-3.02969.hdf5")
 # model summary
 model.summary()
 
@@ -73,40 +75,40 @@ sgd = SGD(lr=1e-1, decay=5e-4, momentum=9e-1, nesterov=True)
 adam = Adam(lr=1e-3)
 
 # compile model
-model.compile(optimizer=adam, loss='mse', metrics=['mae'])
+# model.compile(optimizer=adam, loss='mse', metrics=['mae'])
 
 start = time.time()
 
-data = data_gen.getData(batch_size, memory_size)
+data = data_gen.getData(batch_size, memory_size, dataset_path)
 
 train_ds = data[0]
 val_ds = data[1]
 
 if not os.path.isdir("./models"):
-    os.mkdir("./models")
+    os.mkdir("./models_tmp")
 
 if not os.path.isdir("./logs"):
-    os.mkdir("./logs")
+    os.mkdir("./logs_tmp")
 
 # 画像サイズが大きいときはmodel.fitではなくてmodel.fit_generatorを用いる
 history = model.fit(
     x=train_ds,
-    initial_epoch=0,
+    initial_epoch=26,
     epochs=n_epoch,
     verbose=1,
     validation_data=val_ds,
-    callbacks=[EarlyStopping(patience=patience),
-               ModelCheckpoint("models/models.{epoch:03d}-{val_loss:.5f}.hdf5", save_best_only=False,
-                               save_weights_only=False),
-               tf.keras.callbacks.TensorBoard(
-                   log_dir='./logs',
-                   profile_batch='100,150',
-                   histogram_freq=1, write_grads=True, write_images=1,
-                   embeddings_freq=1)
-               ]
+    callbacks=[  # EarlyStopping(patience=patience),
+        ModelCheckpoint("models/models.{epoch:03d}-{val_loss:.5f}.hdf5", save_best_only=False,
+                        save_weights_only=False),
+        tf.keras.callbacks.TensorBoard(
+            log_dir='./logs',
+            profile_batch='100,150',
+            histogram_freq=1, write_grads=True, write_images=1,
+            embeddings_freq=1)
+    ]
 )
 
-model.save('./my_model.h5')
+model.save('./my_model.hdf5')
 
 process_time = time.time() - start
 print(process_time)

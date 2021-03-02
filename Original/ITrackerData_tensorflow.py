@@ -94,12 +94,12 @@ def shuffle(obj):
     np.random.shuffle(obj)
 
 
-def getData(batch_size, memory_size):
+def getData(batch_size, memory_size, dataset_path):
     AUTOTUNE = tf.data.experimental.AUTOTUNE
 
     gridSize = (25, 25)
 
-    dataPath = "/home/kanda/GazeCapture_pre"
+    dataPath = dataset_path
     metaFile = os.path.join(dataPath, 'metadata.mat')
     metadata = loadMetadata(metaFile)
 
@@ -209,7 +209,7 @@ def getData(batch_size, memory_size):
             left_img_ds = left_path_ds_list[i].map(lambda x: load_and_preprocess_image(x, size, eyeLeftMean),
                                                    num_parallel_calls=AUTOTUNE)
 
-        data = tf.data.Dataset.zip(((right_img_ds, left_img_ds, face_img_ds, grid_ds), gaze_ds))
+        data = tf.data.Dataset.zip(((right_img_ds, left_img_ds, face_img_ds, grid_ds_list[i]), gaze_ds_list[i]))
 
         ds = data.batch(batch_size)
         ds = ds.prefetch(buffer_size=AUTOTUNE)

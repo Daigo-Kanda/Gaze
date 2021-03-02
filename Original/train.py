@@ -35,7 +35,7 @@ if gpus:
     # Create 2 virtual GPUs with 5GB memory each
     try:
         tf.config.experimental.set_virtual_device_configuration(
-            gpus[1],
+            gpus[0],
             [tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120),
              tf.config.experimental.VirtualDeviceConfiguration(memory_limit=5120)])
 
